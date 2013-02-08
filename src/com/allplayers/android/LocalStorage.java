@@ -61,7 +61,11 @@ public class LocalStorage {
     }
 
     public static void writePassword(Context c, String write) {
-        writeFile(c, write, "Password");
+        BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
+        textEncryptor.setPassword(LocalStorage.readSecretKey(c));
+        String encryptedPassword = textEncryptor.encrypt(write);
+
+        writeFile(c, encryptedPassword, "Password");
     }
     public static String readPassword(Context c) {
         String returnValue = readFile(c, "Password");

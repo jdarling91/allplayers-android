@@ -1,6 +1,5 @@
 package com.allplayers.android;
 
-import com.allplayers.objects.DataObject;
 import com.allplayers.objects.GroupData;
 
 import org.json.JSONArray;
@@ -19,7 +18,7 @@ public class GroupsMap {
                 for (int i = 0; i < jsonResult.length(); i++) {
                     GroupData group = new GroupData(jsonArray.getString(i));
 
-                    if (group.isNew(groups)) {
+                    if (Globals.isUnique(group, groups)) {
                         groups.add(group);
                     }
                 }

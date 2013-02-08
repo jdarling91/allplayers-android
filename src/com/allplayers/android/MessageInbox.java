@@ -5,7 +5,6 @@ import com.allplayers.rest.RestApiV1;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.AdapterView;
@@ -15,7 +14,6 @@ import android.widget.AdapterView.OnItemClickListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 public class MessageInbox extends Activity {
     private ArrayList<MessageData> messageList;
@@ -35,15 +33,10 @@ public class MessageInbox extends Activity {
         }
 
         if (jsonResult.equals("")) {
-            GetUserInboxTask helper = new GetUserInboxTask();
-            helper.execute();
-        } else {
-            populateInbox(jsonResult);
+            jsonResult = RestApiV1.getUserInbox();
         }
-    }
 
-    public void populateInbox(String json) {
-        MessagesMap messages = new MessagesMap(json);
+        MessagesMap messages = new MessagesMap(jsonResult);
         messageList = messages.getMessageData();
 
         Collections.reverse(messageList);
@@ -58,28 +51,19 @@ public class MessageInbox extends Activity {
         }
 
         final List<MessageData> messageList2 = messageList;
-        MessageAdapter adapter = new MessageAdapter(MessageInbox.this, messageList2);
+        MessageAdapter adapter = new MessageAdapter(this, messageList2);
 
         list.setOnItemClickListener(new OnItemClickListener() {
             public void onItemClick(AdapterView<?> arg0, View view, int position, long index) {
                 if (hasMessages) {
-                    // Go to the message thread.
-                    Intent intent = (new Router(MessageInbox.this)).getMessageThreadIntent(messageList.get(position));
+                    Globals.currentMessage = messageList.get(position);
+
+                    Intent intent = new Intent(MessageInbox.this, MessageThread.class);
                     startActivity(intent);
                 }
             }
         });
 
         list.setAdapter(adapter);
-    }
-
-    public class GetUserInboxTask extends AsyncTask<Void, Void, String> {
-        protected String doInBackground(Void... Args) {
-            return jsonResult = RestApiV1.getUserInbox();
-        }
-
-        protected void onPostExecute(String jsonResult) {
-            populateInbox(jsonResult);
-        }
     }
 }

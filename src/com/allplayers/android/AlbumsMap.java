@@ -1,7 +1,6 @@
 package com.allplayers.android;
 
 import com.allplayers.objects.AlbumData;
-import com.allplayers.objects.DataObject;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -19,7 +18,7 @@ public class AlbumsMap {
                 for (int i = 0; i < jsonResult.length(); i++) {
                     AlbumData album = new AlbumData(jsonArray.getString(i));
 
-                    if (album.isNew(albums)) {
+                    if (Globals.isUnique(album, albums)) {
                         albums.add(album);
                     }
                 }

@@ -1,6 +1,5 @@
 package com.allplayers.android;
 
-import com.allplayers.objects.MessageData;
 import com.allplayers.objects.MessageThreadData;
 
 import android.app.Activity;
@@ -19,9 +18,7 @@ public class MessageViewSingle extends Activity {
 
         setContentView(R.layout.viewsinglemessage);
 
-        Router router = new Router(this);
-        MessageThreadData messageThreadList = router.getIntentMessageThread();
-        final MessageData message = router.getIntentMessage();
+        MessageThreadData messageThreadList = Globals.currentMessageThread;
 
         String subject = messageThreadList.getSubject();
         String sender = messageThreadList.getSenderName();
@@ -49,8 +46,7 @@ public class MessageViewSingle extends Activity {
 
         replyButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-                Intent intent = (new Router(MessageViewSingle.this)).getMessagReplyIntent(message);
-                startActivity(intent);
+                startActivity(new Intent(MessageViewSingle.this, MessageReply.class));
             }
         });
     }

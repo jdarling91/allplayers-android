@@ -1,13 +1,10 @@
 package com.allplayers.rest;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.entity.BufferedHttpEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
+import com.allplayers.android.Globals;
+
+import org.apache.http.conn.ssl.AllowAllHostnameVerifier;
+import org.jasypt.util.text.BasicTextEncryptor;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -15,39 +12,44 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.net.HttpURLConnection;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.security.GeneralSecurityException;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
 
-public class RestApiV1 {
-    private static String sCurrentUserUUID = "";
-    private static CookieHandler sCookieHandler = new CookieManager();
+public class RestApiV1 extends HttpClient{
+    //public static final String BASE_URL = "https://www.allplayers.com";
+    //public static final String PATH_PREFIX = "/?q=api/v1/rest";
+    public static String user_id = "";
+    private static String session_cookie = ""; // first session cookie
+    private static String chocolatechip_cookie = ""; // second cookie
+
+    public static TrustManager[] getTrustManager() {
+        // Create a trust manager that does not validate certificate chains
+        return new TrustManager[] { new X509TrustManager() {
+            public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                return null;
+            }
+
+            public void checkClientTrusted(java.security.cert.X509Certificate[] certs, String authType) {
+                // Do nothing.
+            }
+
+            public void checkServerTrusted(java.security.cert.X509Certificate[] certs, String authType) {
+                // Do nothing
+            }
+        }
+        };
+    }
 
     public RestApiV1() {
-        // Create a trust manager that does not validate certificate chains
-        TrustManager[] trustAllCerts = new TrustManager[] { new X509TrustManager() {
-                public java.security.cert.X509Certificate[] getAcceptedIssuers() {
-                    return null;
-                }
-
-                public void checkClientTrusted(
-                java.security.cert.X509Certificate[] certs, String authType) {
-                }
-
-                public void checkServerTrusted(
-                java.security.cert.X509Certificate[] certs, String authType) {
-                }
-            }
-        };
-
+        TrustManager[] trustAllCerts = getTrustManager();
         // Install the all-trusting trust manager
         try {
             SSLContext sc = SSLContext.getInstance("SSL");
@@ -57,27 +59,43 @@ public class RestApiV1 {
         } catch (Exception ex) {
             System.err.println("APCI_RestServices/constructor/" + ex);
         }
+    }
 
-        // Install CookieHandler
-        CookieHandler.setDefault(sCookieHandler);
+    public JSONObject userGet(String uuid) {
+        return get("users/" + uuid, null);
+    }
+
+    public JSONObject userLogin(String email, String password) {
+        JSONObject params = new JSONObject();
+        try {
+            params.put("email", email);
+            params.put("password", password);
+        } catch (JSONException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return post("users/login", null, params);
     }
 
     public static boolean isLoggedIn() {
-        if (sCurrentUserUUID.equals("")) {
+        if (user_id.equals("")) {
             return false;
         }
 
         // Check an authorized call
         try {
             URL url = new URL(
-                "https://www.allplayers.com/?q=api/v1/rest/users/"
-                + sCurrentUserUUID + ".json");
+                    BASE_URL + PATH_PREFIX + "/users/"
+                            + user_id + ".json");
             HttpURLConnection connection = (HttpURLConnection) url
-                                           .openConnection();
+                    .openConnection();
             connection.setDoInput(true);
+            connection.addRequestProperty("Cookie", chocolatechip_cookie + ";"
+                    + session_cookie);
+            // connection.addRequestProperty("Cookie", session_cookie);
             InputStream inStream = connection.getInputStream();
             BufferedReader input = new BufferedReader(new InputStreamReader(
-                        inStream));
+                    inStream));
 
             String line = "";
 
@@ -89,8 +107,9 @@ public class RestApiV1 {
 
             JSONObject jsonResult = new JSONObject(result);
             String retrievedUUID = jsonResult.getString("uuid");
+            Globals.uuid = jsonResult.getString("uuid");
 
-            if (retrievedUUID.equals(sCurrentUserUUID)) {
+            if (retrievedUUID.equals(user_id)) {
                 return true;
             } else { // This case should not occur
                 return false;
@@ -105,8 +124,8 @@ public class RestApiV1 {
         // String[][] contents = new String[1][2];
         // Type: thread or message (default = thread)
 
-        return makeAuthenticatedDelete("https://www.allplayers.com/?q=api/v1/rest/messages/"
-                                       + threadId + ".json");
+        return makeAuthenticatedDelete(BASE_URL + PATH_PREFIX + "/messages/"
+                + threadId + ".json");
     }
 
     // Change read/unread status
@@ -118,20 +137,29 @@ public class RestApiV1 {
         // Type: thread or message (default = thread)
 
         return makeAuthenticatedPut(
-                   "https://www.allplayers.com/?q=api/v1/rest/messages/"
-                   + threadId + ".json", contents);
+                BASE_URL + PATH_PREFIX + "/messages/"
+                        + threadId + ".json", contents);
     }
 
-    public String validateLogin(String username, String password) {
+    public static String validateLogin(String username, String encryptedPassword) {
+        BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
+        textEncryptor.setPassword(Globals.secretKey);
+        // TODO - Time this, appears SUPER slow!!!
+        String unencryptedPassword = textEncryptor.decrypt(encryptedPassword);
+
+        return login(username, unencryptedPassword);
+    }
+
+    public static String login(String username, String password) {
         String[][] contents = new String[2][2];
-        contents[0][0] = "username";
+        contents[0][0] = "email";
         contents[0][1] = username;
         contents[1][0] = "password";
         contents[1][1] = password;
 
         return makeAuthenticatedPost(
-                   "https://www.allplayers.com/?q=api/v1/rest/users/login.json",
-                   contents);
+                BASE_URL + PATH_PREFIX + "/users/login.json",
+                contents);
     }
 
     public static String postMessage(int threadId, String body) {
@@ -142,111 +170,105 @@ public class RestApiV1 {
         contents[1][1] = body;
 
         return makeAuthenticatedPost(
-                   "https://www.allplayers.com/?q=api/v1/rest/messages.json",
-                   contents);
+                BASE_URL + PATH_PREFIX + "/messages.json",
+                contents);
     }
 
     public static String searchGroups(String search, int zipcode, int distance) {
-        String searchTerms = "https://www.allplayers.com/?q=api/v1/rest/groups.json";
-        if (search.length() != 0) {
-            searchTerms += ("&search=\"" + search + "\"");
-        }
-        // As of right now, the input distance will only matter if a zipcode is given,
-        // so it is only considered in that case.
-        // TODO Add in considering the distance as "Distance from my location"
-        if (zipcode != 0) {
-            searchTerms += ("&distance[postal_code]=" + zipcode
-                            + "&distance[search_distance]="
-                            + distance
-                            + "&distance[search_units]=mile");
-        }
-        return makeUnauthenticatedGet(searchTerms);
+        return makeUnauthenticatedGet(BASE_URL + PATH_PREFIX + "/groups.json&search=\""
+                + search
+                + "\""
+                + "&distance[postal_code]="
+                + zipcode
+                + "&distance[search_distance]="
+                + distance
+                + "&distance[search_units]=mile");
     }
 
     public static String getUserGroups() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/users/"
-                                    + sCurrentUserUUID + "/groups.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/users/"
+                + user_id + "/groups.json");
     }
 
     public static String getUserFriends() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/users/"
-                                    + sCurrentUserUUID + "/friends.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/users/"
+                + user_id + "/friends.json");
     }
 
     public static String getUserGroupmates() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/users/"
-                                    + sCurrentUserUUID + "/groupmates.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/users/"
+                + user_id + "/groupmates.json");
     }
 
     public static String getUserEvents() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/users/"
-                                    + sCurrentUserUUID + "/events/upcoming.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/users/"
+                + user_id + "/events/upcoming.json");
     }
 
     public static String getGroupInformationByGroupId(String group_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/groups/"
-                                    + group_uuid + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/groups/"
+                + group_uuid + ".json");
     }
 
     public static String getGroupAlbumsByGroupId(String group_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/groups/"
-                                    + group_uuid + "/albums.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/groups/"
+                + group_uuid + "/albums.json");
     }
 
     public static String getGroupEventsByGroupId(String group_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/groups/"
-                                    + group_uuid + "/events/upcoming.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/groups/"
+                + group_uuid + "/events/upcoming.json");
     }
 
     public static String getGroupMembersByGroupId(String group_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/groups/"
-                                    + group_uuid + "/members.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/groups/"
+                + group_uuid + "/members.json");
     }
 
     public static String getGroupPhotosByGroupId(String group_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/groups/photos.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/groups/photos.json");
     }
 
     public static String getAlbumByAlbumId(String album_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/albums/"
-                                    + album_uuid + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/albums/"
+                + album_uuid + ".json");
     }
 
     public static String getAlbumPhotosByAlbumId(String album_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/albums/"
-                                    + album_uuid + "/photos.json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/albums/"
+                + album_uuid + "/photos.json");
     }
 
     public static String getPhotoByPhotoId(String photo_uuid) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/photos/"
-                                    + photo_uuid + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/photos/"
+                + photo_uuid + ".json");
     }
 
     public static String getUserInbox() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/messages.json&box=inbox");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/messages.json&box=inbox");
     }
 
     public static String getUserSentBox() {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/messages.json&box=sent");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/messages.json&box=sent");
     }
 
     public static String getUserMessagesByThreadId(String thread_id) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/messages/"
-                                    + thread_id + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/messages/"
+                + thread_id + ".json");
     }
 
     public static String getEventByEventId(String event_id) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/events/"
-                                    + event_id + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/events/"
+                + event_id + ".json");
     }
 
     public static String getUserResourceByResourceId(String resource_id) {
-        return makeAuthenticatedGet("https://www.allplayers.com/?q=api/v1/rest/resources/"
-                                    + resource_id + ".json");
+        return makeAuthenticatedGet(BASE_URL + PATH_PREFIX + "/resources/"
+                + resource_id + ".json");
     }
 
     private static String makeAuthenticatedGet(String urlString) {
-        if (!isLoggedIn()) {
+        if (!isLoggedIn() && !isLoggedIn()) {
             return "You are not logged in";
         }
 
@@ -254,11 +276,13 @@ public class RestApiV1 {
         try {
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url
-                                           .openConnection();
+                    .openConnection();
             connection.setDoInput(true);
+            connection.setRequestProperty("Cookie", chocolatechip_cookie + ";"
+                    + session_cookie);
             InputStream inStream = connection.getInputStream();
             BufferedReader input = new BufferedReader(new InputStreamReader(
-                        inStream));
+                    inStream));
 
             String line = "";
             String result = "";
@@ -268,13 +292,14 @@ public class RestApiV1 {
 
             return result;
         } catch (Exception ex) {
+            // TODO - Don't catch exception, catch and display error dialog in android wrapper.
             System.err.println("APCI_RestServices/makeAuthenticatedGet/" + ex);
             return "error";
         }
     }
 
     private static String makeAuthenticatedDelete(String urlString) {
-        if (!isLoggedIn()) {
+        if (!isLoggedIn() && !isLoggedIn()) {
             return "You are not logged in";
         }
 
@@ -282,24 +307,26 @@ public class RestApiV1 {
         try {
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url
-                                           .openConnection();
+                    .openConnection();
 
             connection.setDoOutput(true);
             connection.setRequestMethod("DELETE");
             connection.setRequestProperty("Content-Type",
-                                          "application/x-www-form-urlencoded");
+                    "application/x-www-form-urlencoded");
+            connection.setRequestProperty("Cookie", chocolatechip_cookie + ";"
+                    + session_cookie);
 
             return "done";
         } catch (Exception ex) {
             System.err.println("APCI_RestServices/makeAuthenticatedDelete/"
-                               + ex);
+                    + ex);
             return ex.toString();
         }
     }
 
     private static String makeAuthenticatedPut(String urlString,
             String[][] contents) {
-        if (!isLoggedIn()) {
+        if (!isLoggedIn() && !isLoggedIn()) {
             return "You are not logged in";
         }
 
@@ -307,16 +334,18 @@ public class RestApiV1 {
         try {
             URL url = new URL(urlString);
             HttpURLConnection connection = (HttpURLConnection) url
-                                           .openConnection();
+                    .openConnection();
 
             connection.setDoOutput(true);
             connection.setDoInput(true);
             connection.setRequestMethod("PUT");
             connection.setRequestProperty("Content-Type",
-                                          "application/x-www-form-urlencoded");
+                    "application/x-www-form-urlencoded");
+            connection.setRequestProperty("Cookie", chocolatechip_cookie + ";"
+                    + session_cookie);
 
             DataOutputStream printout = new DataOutputStream(
-                connection.getOutputStream());
+                    connection.getOutputStream());
 
             // Send PUT output.
             String content = "";
@@ -327,7 +356,7 @@ public class RestApiV1 {
                     }
 
                     content += contents[i][0] + "="
-                               + URLEncoder.encode(contents[i][1], "UTF-8");
+                            + URLEncoder.encode(contents[i][1], "UTF-8");
                 }
             }
 
@@ -350,7 +379,7 @@ public class RestApiV1 {
             connection.setDoInput(true);
             InputStream inStream = connection.getInputStream();
             BufferedReader input = new BufferedReader(new InputStreamReader(
-                        inStream));
+                    inStream));
 
             String line = "";
             String result = "";
@@ -370,27 +399,37 @@ public class RestApiV1 {
             String[][] contents) {
         // Make and return from authenticated post call
         try {
-            URL url = new URL(urlString);
-            HttpURLConnection connection = (HttpURLConnection) url
-                                           .openConnection();
+            TrustManager[] trustAllCerts = getTrustManager();
+            TrustManagerFactory tmf = TrustManagerFactory.getInstance("X509");
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(null, trustAllCerts, null);
 
+            URL url = new URL(urlString);
+            HttpsURLConnection connection = (HttpsURLConnection) url
+                    .openConnection();
+
+            connection.setSSLSocketFactory(context.getSocketFactory());
+            connection.setHostnameVerifier(new AllowAllHostnameVerifier());
             connection.setDoInput(true);
             connection.setDoOutput(true);
             connection.setUseCaches(false);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type",
-                                          "application/x-www-form-urlencoded");
+                    "application/x-www-form-urlencoded");
 
             // If not logging in, set the cookies in the header
             if (!urlString
-                    .equals("https://www.allplayers.com/?q=api/v1/rest/users/login.json")) {
-                if (!isLoggedIn()) {
+                    .equals(BASE_URL + PATH_PREFIX + "/users/login.json")) {
+                if (!isLoggedIn() && !isLoggedIn()) {
                     return "You are not logged in";
                 }
+
+                connection.setRequestProperty("Cookie", chocolatechip_cookie
+                        + ";" + session_cookie);
             }
 
             DataOutputStream printout = new DataOutputStream(
-                connection.getOutputStream());
+                    connection.getOutputStream());
 
             // Send POST output.
             String content = "";
@@ -401,7 +440,7 @@ public class RestApiV1 {
                     }
 
                     content += contents[i][0] + "="
-                               + URLEncoder.encode(contents[i][1], "UTF-8");
+                            + URLEncoder.encode(contents[i][1], "UTF-8");
                 }
             }
 
@@ -411,7 +450,7 @@ public class RestApiV1 {
 
             // Get response data.
             BufferedReader input = new BufferedReader(new InputStreamReader(
-                        connection.getInputStream()));
+                    connection.getInputStream()));
             String str;
 
             String result = "";
@@ -421,51 +460,54 @@ public class RestApiV1 {
 
             input.close();
 
+            // If logging in, store the cookies for future use
+            if (urlString
+                    .equals(BASE_URL + PATH_PREFIX + "/users/login.json")) {
+                setCookies(connection);
+            }
+
             return result;
-        } catch (Exception ex) {
-            System.err.println("APCI_RestServices/makeAuthenticatedPost/" + ex);
-            return ex.toString();
+        } catch (IOException ex) {
+            // TODO - Convert exceptions to Runtime to avoid catching them or supressing them.
+            // In other words, for now they should cause a crash until the UI can handle them.
+            throw new RuntimeException("Network Error: " + ex.getMessage(), ex);
+        } catch (GeneralSecurityException ex) {
+            // TODO - Like above, this should be limited to the constructor though - and only when
+            // using the TrustManager to avoid SSL Cert verification - so only in testing.
+            throw new RuntimeException("General Security Error: " + ex.getMessage(), ex);
+        }
+    }
+
+    private static void setCookies(HttpURLConnection connection) {
+        // Get all cookies from the server
+        for (int i = 0;; i++) {
+            String headerName = connection.getHeaderFieldKey(i);
+            String headerValue = connection.getHeaderField(i);
+
+            if (headerName == null && headerValue == null) {
+                // No more headers
+                break;
+            }
+
+            if ("Set-Cookie".equalsIgnoreCase(headerName)) {
+                // parse cookie
+                String[] fields = headerValue.split(";\\s*");
+
+                String cookieValue = fields[0];
+
+                if (cookieValue.startsWith("SESS")) {
+                    session_cookie = cookieValue;
+                } else if (cookieValue.startsWith("CHOCOLATECHIP")) {
+                    chocolatechip_cookie = cookieValue;
+                }
+            }
         }
     }
 
     public static void logOut() {
-        ((CookieManager) CookieHandler.getDefault()).getCookieStore().removeAll();
-        sCurrentUserUUID = "";
-    }
-
-    /**
-     * Get a Bitmap from a URL.
-     *
-     * TODO - Use same connection and cookies as REST requests.
-     */
-    public static Bitmap getRemoteImage(final String urlString) {
-        try {
-            HttpGet httpRequest = null;
-
-            try {
-                httpRequest = new HttpGet(new URL(urlString).toURI());
-            } catch (URISyntaxException ex) {
-                System.err.println("RestApiV1/getRemoteImage/" + ex);
-            }
-
-            HttpClient httpclient = new DefaultHttpClient();
-            HttpResponse response = httpclient.execute(httpRequest);
-            HttpEntity entity = response.getEntity();
-            BufferedHttpEntity bufHttpEntity = new BufferedHttpEntity(entity);
-            InputStream instream = bufHttpEntity.getContent();
-            return BitmapFactory.decodeStream(instream);
-        } catch (IOException ex) {
-            System.err.println("RestApiV1/getRemoteImage/" + ex);
-        }
-
-        return null;
-    }
-
-    public void setCurrentUserUUID(String uuid) {
-        sCurrentUserUUID = uuid;
-    }
-
-    public static String getCurrentUserUUID() {
-        return sCurrentUserUUID;
+        user_id = "";
+        session_cookie = "";
+        chocolatechip_cookie = "";
+        Globals.reset();
     }
 }

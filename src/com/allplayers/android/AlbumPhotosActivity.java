@@ -1,22 +1,16 @@
 package com.allplayers.android;
 
 import com.allplayers.rest.RestApiV1;
-import com.allplayers.objects.AlbumData;
 import com.allplayers.objects.PhotoData;
 
 import android.app.ListActivity;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import java.util.ArrayList;
-
-import org.json.JSONException;
-import org.json.JSONObject;
 
 public class AlbumPhotosActivity extends ListActivity {
     private ArrayList<PhotoData> photoList;
@@ -25,10 +19,22 @@ public class AlbumPhotosActivity extends ListActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        AlbumData album = (new Router(this)).getIntentAlbum();
 
-        GetAlbumPhotosByAlbumIdTask helper = new GetAlbumPhotosByAlbumIdTask();
-        helper.execute(album);
+        String jsonResult = RestApiV1.getAlbumPhotosByAlbumId(Globals.currentAlbum.getUUID());
+        PhotosMap photos = new PhotosMap(jsonResult);
+        photoList = photos.getPhotoData();
+
+        if (photoList.isEmpty()) {
+            String[] values = new String[] {"no photos to display"};
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                    android.R.layout.simple_list_item_1, values);
+            setListAdapter(adapter);
+        } else {
+            //Create a customized ArrayAdapter
+            PhotoAdapter adapter = new PhotoAdapter(getApplicationContext(), R.layout.photolistitem, photoList);
+            setListAdapter(adapter);
+        }
     }
 
     @Override
@@ -36,35 +42,11 @@ public class AlbumPhotosActivity extends ListActivity {
         super.onListItemClick(l, v, position, id);
 
         if (!photoList.isEmpty()) {
-            // Display the group page for the selected group
-            Intent intent = (new Router(this)).getPhotoDisplayActivityIntent(photoList.get(position));
+            Globals.currentPhoto = photoList.get(position);
+
+            //Display the group page for the selected group
+            Intent intent = new Intent(AlbumPhotosActivity.this, PhotoDisplayActivity.class);
             startActivity(intent);
-        }
-    }
-
-    /*
-     * Gets the photos from an album specified by its album ID using a rest call.
-     */
-    public class GetAlbumPhotosByAlbumIdTask extends AsyncTask<AlbumData, Void, String> {
-
-        protected String doInBackground(AlbumData... album) {
-            return RestApiV1.getAlbumPhotosByAlbumId(album[0].getUUID());
-        }
-
-        protected void onPostExecute(String jsonResult) {
-            PhotosMap photos = new PhotosMap(jsonResult);
-            photoList = photos.getPhotoData();
-            if (photoList.isEmpty()) {
-                String[] values = new String[] {"no photos to display"};
-
-                ArrayAdapter<String> adapter = new ArrayAdapter<String>(AlbumPhotosActivity.this,
-                        android.R.layout.simple_list_item_1, values);
-                setListAdapter(adapter);
-            } else {
-                //Create a customized ArrayAdapter
-                PhotoAdapter adapter = new PhotoAdapter(getApplicationContext(), R.layout.photolistitem, photoList);
-                setListAdapter(adapter);
-            }
         }
     }
 }

@@ -6,7 +6,6 @@ import android.app.TabActivity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -60,37 +59,21 @@ public class MainScreen extends TabActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
-        inflater.inflate(R.menu.defaultmenu, menu);
+        inflater.inflate(R.menu.logoutmenu, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-        case R.id.logOut: {
-            LogOutTask helper = new LogOutTask();
-            helper.execute();
-            LocalStorage.writePassword(context, "");
-            startActivity(new Intent(MainScreen.this, Login.class));
-            finish();
-            return true;
-        }
-        case R.id.search: {
-            startActivity(new Intent(MainScreen.this, FindGroupsActivity.class));
-            return true;
-        }
-        default:
-            return super.onOptionsItemSelected(item);
-        }
-    }
-
-    /*
-     * Logs the user out using a rest call.
-     */
-    public class LogOutTask extends AsyncTask<Void, Void, Void> {
-        protected Void doInBackground(Void... args) {
-            RestApiV1.logOut();
-            return null;
-        }
+        int itemId = item.getItemId();
+		if (itemId == R.id.logOut) {
+			RestApiV1.logOut();
+			LocalStorage.writePassword(context, "");
+			startActivity(new Intent(MainScreen.this, Login.class));
+			finish();
+			return true;
+		} else {
+			return super.onOptionsItemSelected(item);
+		}
     }
 }

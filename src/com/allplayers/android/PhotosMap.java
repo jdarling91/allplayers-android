@@ -1,6 +1,5 @@
 package com.allplayers.android;
 
-import com.allplayers.objects.DataObject;
 import com.allplayers.objects.PhotoData;
 
 import org.json.JSONArray;
@@ -23,7 +22,7 @@ public class PhotosMap {
                         PhotoData photo = new PhotoData(jsonArray.getString(i));
 
                         if (photo.getPhotoFull() != null && !photo.getPhotoFull().trim().equals("")) {
-                            if (photo.isNew(photos)) {
+                            if (Globals.isUnique(photo, photos)) {
                                 if (numPhotos > 0) {
                                     photo.setPreviousPhoto(photos.get(numPhotos - 1));
                                     photos.get(numPhotos - 1).setNextPhoto(photo);

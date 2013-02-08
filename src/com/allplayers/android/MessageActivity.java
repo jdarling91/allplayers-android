@@ -5,7 +5,6 @@ import com.allplayers.rest.RestApiV1;
 
 import android.app.ListActivity;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ListView;
@@ -29,38 +28,15 @@ public class MessageActivity extends ListActivity {
 
         //check local storage
         if (LocalStorage.getTimeSinceLastModification("Inbox") / 1000 / 60 < 15) { //more recent than 15 minutes
-            populateInbox();
+            jsonResult = LocalStorage.readInbox(getBaseContext());
         } else {
-            GetUserInboxTask helper = new GetUserInboxTask();
-            helper.execute();
+            jsonResult = RestApiV1.getUserInbox();
+            LocalStorage.writeInbox(getBaseContext(), jsonResult, false);
         }
-    }
 
-    @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
-
-        if (position == 0) {
-            Bundle bundle = new Bundle();
-            bundle.putString("inboxJSON", jsonResult);
-
-            Intent intent = new Intent(MessageActivity.this, MessageInbox.class);
-            intent.putExtras(bundle);
-            startActivity(intent);
-        } else if (position == 1) {
-            Intent intent = new Intent(MessageActivity.this, MessageSent.class);
-            startActivity(intent);
-        }
-    }
-
-    /**
-     * Uses the json result passed in, and populates the inbox of the
-     * user with the messages.
-     */
-    protected void populateInbox() {
-        jsonResult = LocalStorage.readInbox(getBaseContext());
         MessagesMap messages = new MessagesMap(jsonResult);
         messageList = messages.getMessageData();
+
         HashMap<String, String> map;
 
         if (!messageList.isEmpty()) {
@@ -90,14 +66,20 @@ public class MessageActivity extends ListActivity {
         setListAdapter(adapter);
     }
 
-    public class GetUserInboxTask extends AsyncTask<Void, Void, String> {
-        protected String doInBackground(Void... args) {
-            return RestApiV1.getUserInbox();
-        }
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        super.onListItemClick(l, v, position, id);
 
-        protected void onPostExecute(String jsonResult) {
-            LocalStorage.writeInbox(getBaseContext(), jsonResult, false);
-            populateInbox();
+        if (position == 0) {
+            Bundle bundle = new Bundle();
+            bundle.putString("inboxJSON", jsonResult);
+
+            Intent intent = new Intent(MessageActivity.this, MessageInbox.class);
+            intent.putExtras(bundle);
+            startActivity(intent);
+        } else if (position == 1) {
+            Intent intent = new Intent(MessageActivity.this, MessageSent.class);
+            startActivity(intent);
         }
     }
 }

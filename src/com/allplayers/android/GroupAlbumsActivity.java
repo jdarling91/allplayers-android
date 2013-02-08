@@ -1,13 +1,11 @@
 package com.allplayers.android;
 
 import com.allplayers.objects.AlbumData;
-import com.allplayers.objects.GroupData;
 
 import com.allplayers.rest.RestApiV1;
 
 import android.app.ListActivity;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -23,10 +21,20 @@ public class GroupAlbumsActivity  extends ListActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        GroupData group = (new Router(this)).getIntentGroup();
+        String jsonResult = RestApiV1.getGroupAlbumsByGroupId(Globals.currentGroup.getUUID());
+        AlbumsMap albums = new AlbumsMap(jsonResult);
+        albumList = albums.getAlbumData();
 
-        GetGroupAlbumsByGroupIdTask helper = new GetGroupAlbumsByGroupIdTask();
-        helper.execute(group);
+        if (albumList.isEmpty()) {
+            String[] values = new String[] {"no albums to display"};
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(this,
+                    android.R.layout.simple_list_item_1, values);
+            setListAdapter(adapter);
+        } else {
+            //Create a customized ArrayAdapter
+            AlbumAdapter adapter = new AlbumAdapter(getApplicationContext(), R.layout.albumlistitem, albumList);
+            setListAdapter(adapter);
+        }
     }
 
     @Override
@@ -34,34 +42,11 @@ public class GroupAlbumsActivity  extends ListActivity {
         super.onListItemClick(l, v, position, id);
 
         if (!albumList.isEmpty()) {
+            Globals.currentAlbum = albumList.get(position);
+
             //Display the photos for the selected album
-            Intent intent = (new Router(this)).getAlbumPhotosActivityIntent(albumList.get(position));
+            Intent intent = new Intent(GroupAlbumsActivity.this, AlbumPhotosActivity.class);
             startActivity(intent);
-        }
-    }
-
-    /*
-     * Gets the photo albums for a group by using the groups ID with a rest call.
-     */
-    public class GetGroupAlbumsByGroupIdTask extends AsyncTask<GroupData, Void, String> {
-
-        protected String doInBackground(GroupData... groups) {
-            return RestApiV1.getGroupAlbumsByGroupId(groups[0].getUUID());
-        }
-
-        protected void onPostExecute(String jsonResult) {
-            AlbumsMap albums = new AlbumsMap(jsonResult);
-            albumList = albums.getAlbumData();
-            if (albumList.isEmpty()) {
-                String[] values = new String[] {"no albums to display"};
-                ArrayAdapter<String> adapter = new ArrayAdapter<String>(GroupAlbumsActivity.this,
-                        android.R.layout.simple_list_item_1, values);
-                setListAdapter(adapter);
-            } else {
-                //Create a customized ArrayAdapter
-                AlbumAdapter adapter = new AlbumAdapter(getApplicationContext(), R.layout.albumlistitem, albumList);
-                setListAdapter(adapter);
-            }
         }
     }
 }

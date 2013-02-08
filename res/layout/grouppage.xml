@@ -41,17 +41,14 @@
 	  android:paddingTop="10px"
 	  android:paddingBottom="25px">
 		<Button
-		  android:visibility="gone"
 		  android:id="@+id/groupMembersButton"
 		  android:layout_width="fill_parent"
 		  android:layout_height="wrap_content"
 		  android:text="Group Members"
 		  android:gravity="center"
 		  android:layout_weight="0">
-		  
 		</Button>
 		<Button
-		  android:visibility="gone"
 		  android:id="@+id/groupEventsButton"
 		  android:layout_width="fill_parent"
 		  android:layout_height="wrap_content"
@@ -60,7 +57,6 @@
 		  android:layout_weight="0">
 		</Button>
 		<Button
-		  android:visibility="gone"
 		  android:id="@+id/groupPhotosButton"
 		  android:layout_width="fill_parent"
 		  android:layout_height="wrap_content"

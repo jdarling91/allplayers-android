@@ -1,13 +1,22 @@
 package com.allplayers.android;
 
+import java.io.IOException;
+
+import com.allplayers.android.account.Authenticator;
+import com.allplayers.android.app.ActionBarActivity;
+import com.allplayers.android.net.AuthClient;
 import com.allplayers.rest.RestApiV1;
 
-import android.app.Activity;
+import android.accounts.Account;
+import android.accounts.AccountManager;
+import android.accounts.AccountManagerFuture;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.StrictMode;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
@@ -18,32 +27,21 @@ import org.jasypt.util.text.BasicTextEncryptor;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-/**
- * Initial activity to handle login.
- *
- * TODO: Replace with AccountManager, loading only as required when an account
- * is needed.
- */
-public class Login extends Activity {
-
+public class Login extends ActionBarActivity {
     private Context context;
+    ProgressDialog progressDialog;
+    private AccountManagerFuture<Bundle> mAmf;
 
+    /** called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
-
-
-        // TODO - Temporarily disable StrictMode because all networking is
-        // currently in the UI thread. Android now throws exceptions when
-        // obvious IO happens in the UI thread, which is a good thing.
-        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-        StrictMode.setThreadPolicy(policy);
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
+        progressDialog = new ProgressDialog(this);
 
         context = this.getBaseContext();
 
-        String storedEmail = LocalStorage.readUserName(context);
+        String storedUser = LocalStorage.readUserName(context);
         String storedPassword = LocalStorage.readPassword(context);
         String storedSecretKey = LocalStorage.readSecretKey(context);
 
@@ -52,13 +50,10 @@ public class Login extends Activity {
             storedSecretKey = LocalStorage.readSecretKey(context);
         }
 
-        if (storedEmail != null && !storedEmail.equals("") && storedPassword != null && !storedPassword.equals("")) {
-            BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
-            textEncryptor.setPassword(storedSecretKey);
-            String unencryptedPassword = textEncryptor.decrypt(storedPassword);
+        Globals.secretKey = storedSecretKey;
 
-            AttemptLoginTask helper = new AttemptLoginTask();
-            helper.execute(storedEmail, unencryptedPassword);
+        if (storedUser != null && !storedUser.equals("") && storedPassword != null && !storedPassword.equals("")) {
+            new LoginTask().execute(LocalStorage.readUserName(context), LocalStorage.readPassword(context));
         }
 
         final Button button = (Button)findViewById(R.id.loginButton);
@@ -67,19 +62,17 @@ public class Login extends Activity {
                 EditText usernameEditText = (EditText)findViewById(R.id.usernameField);
                 EditText passwordEditText = (EditText)findViewById(R.id.passwordField);
 
-                String email = usernameEditText.getText().toString();
+                String username = usernameEditText.getText().toString();
                 String password = passwordEditText.getText().toString();;
 
                 BasicTextEncryptor textEncryptor = new BasicTextEncryptor();
                 textEncryptor.setPassword(LocalStorage.readSecretKey(context));
                 String encryptedPassword = textEncryptor.encrypt(password);
 
-                LocalStorage.writeUserName(context, email);
-                LocalStorage.writePassword(context, encryptedPassword);
+                LocalStorage.writeUserName(context, username);
+                LocalStorage.writePassword(context, password);
 
-                AttemptLoginTask helper = new AttemptLoginTask();
-                helper.execute(email, password);
-
+                new LoginTask().execute(username, encryptedPassword);
             }
         });
     }
@@ -89,36 +82,79 @@ public class Login extends Activity {
         if (keyCode == KeyEvent.KEYCODE_SEARCH || keyCode == KeyEvent.KEYCODE_MENU) {
             startActivity(new Intent(Login.this, FindGroupsActivity.class));
         }
+
         return super.onKeyUp(keyCode, event);
     }
 
     /**
-     * Attempt a login, if successful, move to the real main activity.
+     * Background task to load groups...
      */
-    public class AttemptLoginTask extends AsyncTask<String, Void, Boolean> {
-
-        protected Boolean doInBackground(String... strings) {
-            RestApiV1 client = new RestApiV1();
-            try {
-                String result = client.validateLogin(strings[0], strings[1]);
-                JSONObject jsonResult = new JSONObject(result);
-                client.setCurrentUserUUID(jsonResult.getJSONObject("user").getString("uuid"));
-
-                Intent intent = new Intent(Login.this, MainScreen.class);
-                startActivity(intent);
-                finish();
-                return true;
-            } catch (JSONException ex) {
-                System.err.println("Login/user_id/" + ex);
-                return false;
-            }
+    private class LoginTask extends AsyncTask<String, String, String> {
+        /**
+         * Before jumping into background thread, start busy animation.
+         */
+        @Override
+        protected void onPreExecute() {
+            progressDialog.setMessage("Signing in...");
+            progressDialog.show();
         }
 
-        protected void onPostExecute(Boolean ex) {
-            if (!ex) {
+        /**
+         * Perform the background login.
+         */
+        @Override
+        protected String doInBackground(String... args) {
+            AccountManager am = AccountManager.get(context);
+            Account[] accounts = am.getAccountsByType(Authenticator.ACCOUNT_TYPE);
+            // @TODO - Prompt to create account
+            Account account = accounts[0];
+            try {
+                AuthClient client = new AuthClient(am, account);
+                client.userGet("2531d044-f611-11e0-a44b-12313d04fc0f");
+            } catch (OperationCanceledException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (AuthenticatorException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            String ret = RestApiV1.validateLogin(args[0], args[1]);
+            return ret;
+        }
+
+        /**
+         * Progress update (needs research).
+         */
+        @Override
+        protected void onProgressUpdate(String... args) {
+            // TODO: Update busy animation.
+        }
+
+        /**
+         * Finished, put the content in.
+         */
+        @Override
+        protected void onPostExecute(String result) {
+            // Stop animation.
+            progressDialog.dismiss();
+
+            try {
+                JSONObject jsonResult = new JSONObject(result);
+                RestApiV1.user_id = jsonResult.getJSONObject("user").getString("uuid");
+            } catch (JSONException ex) {
+                System.err.println("Login/user_id/" + ex);
+
                 Toast invalidLogin = Toast.makeText(getApplicationContext(), "Invalid Login", Toast.LENGTH_LONG);
                 invalidLogin.show();
             }
+
+            // Go to the home screen.
+            startActivity(new Intent(Login.this, HomeActivity.class));
+            finish();
         }
     }
 }
