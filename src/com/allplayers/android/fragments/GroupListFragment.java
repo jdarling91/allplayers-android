@@ -7,9 +7,13 @@ import com.allplayers.android.LocalStorage;
 import com.allplayers.android.R;
 import com.allplayers.android.net.AuthClient;
 import com.allplayers.objects.GroupData;
+import com.allplayers.rest.RestApiV1;
+
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
@@ -98,7 +102,10 @@ public class GroupListFragment extends ListFragment{
                     try {
                         AuthClient client = new AuthClient(GroupListFragment.this.getActivity());
                         // TODO - UUID needs to be stored at login. This urgently needs to be fixed.
-                        String uuid = "20374881-0dd9-11e2-92f8-22000a929134";
+                        
+                        for(int i = 0; i < 50; i++) {System.out.println(RestApiV1.user_id);}
+                        SharedPreferences settings = getActivity().getPreferences(Context.MODE_PRIVATE);
+                        String uuid = settings.getString("uuid", "null"); //"20374881-0dd9-11e2-92f8-22000a929134"
                         result = client.index("users/" + uuid + "/groups", null);
                         jsonResult = result.toString();
                     } catch (OperationCanceledException e) {

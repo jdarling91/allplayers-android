@@ -2,12 +2,14 @@ package com.allplayers.android.account;
 
 import com.allplayers.android.R;
 import com.allplayers.rest.RestApiV1;
+import com.google.gson.Gson;
 
 import android.accounts.Account;
 import android.accounts.AccountAuthenticatorActivity;
 import android.accounts.AccountManager;
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -16,6 +18,8 @@ import android.view.View;
 import android.view.Window;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import org.json.*;
 
 /**
  * Activity to manage logins and other account state.
@@ -62,6 +66,8 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity {
     private String mUsername;
 
     private EditText mUsernameEdit;
+    
+    private String userUUID;
 
     /**
      * {@inheritDoc}
@@ -124,6 +130,7 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity {
      */
     public void onAuthenticationSuccess(String authToken) {
 
+    	for(int i = 0; i < 20; i++) {System.out.println(authToken);}
         // Our task is complete, so clear it out
         mAuthTask = null;
 
@@ -189,6 +196,10 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity {
         intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mUsername);
         intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, Authenticator.ACCOUNT_TYPE);
         // TODO - Password?
+        
+        // Save the user's uuid for future use.
+        
+        mAccountManager.setUserData(account, "uuid", userUUID);
         setAccountAuthenticatorResult(intent.getExtras());
         setResult(RESULT_OK, intent);
         finish();
@@ -268,6 +279,16 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity {
             // communicate the authToken.
         	if (result instanceof String) {
                 onAuthenticationSuccess((String) result);
+                try {
+					userUUID = ((JSONObject) result).getJSONObject("user").getString("uuid");
+					SharedPreferences settings = getPreferences(MODE_PRIVATE);
+					SharedPreferences.Editor editor = settings.edit();
+					editor.putString("uuid", userUUID);
+					editor.commit();
+				} catch (JSONException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
         	}
         	else if (result instanceof Exception) {
         		onAuthenticationException((Exception) result);
