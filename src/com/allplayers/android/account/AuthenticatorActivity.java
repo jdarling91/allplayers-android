@@ -19,7 +19,8 @@ import android.view.Window;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import org.json.*;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Activity to manage logins and other account state.
@@ -279,9 +280,11 @@ public class AuthenticatorActivity extends AccountAuthenticatorActivity {
             // communicate the authToken.
         	if (result instanceof String) {
                 onAuthenticationSuccess((String) result);
+                
                 try {
-					userUUID = ((JSONObject) result).getJSONObject("user").getString("uuid");
-					SharedPreferences settings = getPreferences(MODE_PRIVATE);
+                	JSONObject jsonResult = new JSONObject((String)result);
+					userUUID = jsonResult.getJSONObject("user").getString("uuid");
+					SharedPreferences settings = getSharedPreferences("userdata", MODE_PRIVATE);
 					SharedPreferences.Editor editor = settings.edit();
 					editor.putString("uuid", userUUID);
 					editor.commit();

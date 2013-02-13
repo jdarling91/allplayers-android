@@ -101,11 +101,9 @@ public class GroupListFragment extends ListFragment{
                     JSONArray result;
                     try {
                         AuthClient client = new AuthClient(GroupListFragment.this.getActivity());
-                        // TODO - UUID needs to be stored at login. This urgently needs to be fixed.
                         
-                        for(int i = 0; i < 50; i++) {System.out.println(RestApiV1.user_id);}
-                        SharedPreferences settings = getActivity().getPreferences(Context.MODE_PRIVATE);
-                        String uuid = settings.getString("uuid", "null"); //"20374881-0dd9-11e2-92f8-22000a929134"
+                        SharedPreferences settings = getActivity().getSharedPreferences("userdata", Context.MODE_PRIVATE);
+                        String uuid = settings.getString("uuid", "null");
                         result = client.index("users/" + uuid + "/groups", null);
                         jsonResult = result.toString();
                     } catch (OperationCanceledException e) {
