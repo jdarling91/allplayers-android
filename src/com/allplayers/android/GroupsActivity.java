@@ -1,143 +1,193 @@
+
 package com.allplayers.android;
 
-import com.allplayers.objects.GroupData;
+import com.actionbarsherlock.app.ActionBar;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuInflater;
+import com.actionbarsherlock.view.MenuItem;
 import com.allplayers.rest.RestApiV1;
+import com.devspark.sidenavigation.ISideNavigationCallback;
+import com.devspark.sidenavigation.SideNavigationView;
+import com.devspark.sidenavigation.SideNavigationView.Mode;
 
-import android.app.ListActivity;
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.view.KeyEvent;
-import android.view.View;
-import android.widget.AbsListView;
-import android.widget.AbsListView.OnScrollListener;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
-import android.widget.TextView;
 
-import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
+public class GroupsActivity extends SherlockFragmentActivity implements ISideNavigationCallback {
 
-public class GroupsActivity extends ListActivity {
-    private ArrayList<GroupData> groupList;
-    private boolean hasGroups = false, loadMore = true;
-    private String jsonResult;
-    private int pageNumber = 0;
-    private int currentAmountShown = 0;
-    private ArrayAdapter<String> adapter;
-    private TextView loadingMore;
+    private ActionBar actionbar;
+    private SideNavigationView sideNavigationView;
 
-    /** Called when the activity is first created. */
+    /**
+     * Called when the activity is first created, this creates the Action Bar
+     * and sets up the Side Navigation Menu.
+     *
+     * @param savedInstanceState: Saved data from the last instance of the
+     *            activity.
+     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
-        groupList = new ArrayList<GroupData>();
-        adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
 
-        loadingMore = new TextView(this);
-        loadingMore.setTextColor(Color.WHITE);
-        loadingMore.setText("LOADING MORE GROUPS...");
-        loadingMore.setTextSize(20);
+        setContentView(R.layout.groups);
 
-        getListView().addFooterView(loadingMore);
-        setListAdapter(adapter);
+        actionbar = getSupportActionBar();
+        actionbar.setIcon(R.drawable.menu_icon);
+        actionbar.setTitle("Groups");
 
-        getListView().setOnScrollListener(new OnScrollListener() {
-            private int visibleThreshold = 2;
-            private int previousTotal = 0;
-            private boolean loading = true;
-            public void onScroll(AbsListView view, int firstVisibleItem,
-            int visibleItemCount, int totalItemCount) {
-                if (loading) {
-                    if (totalItemCount > previousTotal) {
-                        loading = false;
-                        previousTotal = totalItemCount;
-                    }
-                }
-                if (loadMore && !loading && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
-                    new GetUserGroupsTask().execute();
-                    loading = true;
-                }
-            }
-            @Override
-            public void onScrollStateChanged(AbsListView arg0, int arg1) {
-            }
-
-        });
-        //check local storage
-        if (LocalStorage.getTimeSinceLastModification("UserGroups") / 1000 / 60 < 60) { //more recent than 60 minutes
-            jsonResult = LocalStorage.readUserGroups(getBaseContext());
-            updateGroupData();
-        } else {
-            GetUserGroupsTask helper = new GetUserGroupsTask();
-            helper.execute();
-        }
+        sideNavigationView = (SideNavigationView) findViewById(R.id.side_navigation_view);
+        sideNavigationView.setMenuItems(R.menu.side_navigation_menu);
+        sideNavigationView.setMenuClickCallback(this);
+        sideNavigationView.setMode(Mode.LEFT);
     }
 
+    /**
+     * Creates the Action Bar Options Menu.
+     *
+     * @param menu: The menu to be created.
+     */
     @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
-        if (hasGroups && position < groupList.size()) {
-            //Display the group page for the selected group
-            Intent intent = (new Router(this)).getGroupPageActivityIntent(groupList.get(position));
-            startActivity(intent);
-        }
+    public boolean onCreateOptionsMenu(Menu menu) {
+
+        MenuInflater inflater = getSupportMenuInflater();
+        inflater.inflate(R.menu.main_screen_menu, menu);
+
+        return true;
     }
 
+    /**
+     * Listener for the Action Bar Options Menu.
+     *
+     * @param item: The selected menu item.
+     */
     @Override
-    public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_SEARCH) {
-            startActivity(new Intent(GroupsActivity.this, FindGroupsActivity.class));
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+
+        case R.id.search: {
+            search();
+            return true;
         }
 
-        return super.onKeyUp(keyCode, event);
-    }
+        case R.id.logOut: {
+            logOut();
+            return true;
+        }
 
-    /** Populates the list of groups to display to the UI thread. */
-    protected void updateGroupData() {
-        if (!groupList.isEmpty()) {
+        case R.id.refresh: {
+            refresh();
+            return true;
+        }
 
-            // Counter to check if a full 8 new groups were loaded.
-            int counter = 0;
-            for (int i = currentAmountShown; i < groupList.size(); i++) {
-                adapter.add(groupList.get(currentAmountShown).getTitle());
-                currentAmountShown++;
-                counter++;
-            }
+        case android.R.id.home: {
+            sideNavigationView.toggleMenu();
+            return true;
+        }
 
-            // If we did not load 8 groups, we are at the end of the list, so signal
-            // not to try to load more groups.
-            if (counter < 8) {
-                loadMore = false;
-                loadingMore.setVisibility(View.GONE);
-            }
-
-            hasGroups = true;
-            // Check for default of no groups to display.
-            if (adapter.getPosition("no groups to display") >= 0) {
-                adapter.remove("no groups to display");
-            }
-        } else {
-            hasGroups = false;
-            adapter.add("no groups to display");
+        default:
+            return super.onOptionsItemSelected(item);
         }
     }
 
     /**
-     * Fetches the groups a user belongs to and stores the data locally.
+     * Listener for the Side Navigation Menu.
+     *
+     * @param itemId: The ID of the list item that was selected.
      */
-    public class GetUserGroupsTask extends AsyncTask<Void, Void, String> {
-        protected String doInBackground(Void... args) {
-            return RestApiV1.getUserGroups(pageNumber++ * 8, 8);
+    @Override
+    public void onSideNavigationItemClick(int itemId) {
+
+        switch (itemId) {
+
+        case R.id.side_navigation_menu_item1:
+            invokeActivity(GroupsActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item2:
+            invokeActivity(MessageActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item3:
+            invokeActivity(PhotosActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item4:
+            invokeActivity(EventsActivity.class);
+            break;
+
+        default:
+            return;
         }
 
-        protected void onPostExecute(String jsonResult) {
-            GroupsActivity.this.jsonResult += jsonResult;
-            LocalStorage.writeUserGroups(getBaseContext(), jsonResult, false);
-            GroupsMap groups = new GroupsMap(jsonResult);
-            groupList.addAll(groups.getGroupData());
-            updateGroupData();
+        finish();
+    }
+
+    /**
+     * Helper method for onSideNavigationItemClick. Starts the passed in
+     * activity.
+     *
+     * @param activity: The activity to be started.
+     */
+    @SuppressWarnings("rawtypes")
+    private void invokeActivity(Class activity) {
+
+        Intent intent = new Intent(this, activity);
+        startActivity(intent);
+
+        overridePendingTransition(0, 0); // Disables new activity animation.
+    }
+
+    /**
+     * Opens the search screen.
+     */
+    private void search() {
+
+        startActivity(new Intent(this, FindGroupsActivity.class));
+    }
+
+    /**
+     * Logs the user out of the application.
+     */
+    private void logOut() {
+
+        LogOutTask helper = new LogOutTask();
+        helper.execute();
+
+        AccountManager manager = AccountManager.get(this.getBaseContext());
+        Account[] accounts = manager.getAccountsByType("com.allplayers.android");
+
+        if (accounts.length == 1) {
+            manager.removeAccount(accounts[0], null, null);
+        }
+
+        startActivity(new Intent(this, Login.class));
+        finish();
+    }
+
+    /**
+     * Refreshes the current activity to update information.
+     */
+    private void refresh() {
+
+        finish();
+        startActivity(getIntent());
+    }
+
+    /**
+     * Helper class to handle the network call needed to log out asynchronously.
+     */
+    public class LogOutTask extends AsyncTask<Void, Void, Void> {
+
+        protected Void doInBackground(Void... args) {
+
+            RestApiV1.logOut();
+            return null;
         }
     }
 }

@@ -1,102 +1,193 @@
+
 package com.allplayers.android;
 
-import com.allplayers.objects.MessageData;
+import com.actionbarsherlock.app.ActionBar;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuInflater;
+import com.actionbarsherlock.view.MenuItem;
 import com.allplayers.rest.RestApiV1;
+import com.devspark.sidenavigation.ISideNavigationCallback;
+import com.devspark.sidenavigation.SideNavigationView;
+import com.devspark.sidenavigation.SideNavigationView.Mode;
 
-import android.app.ListActivity;
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ListView;
-import android.widget.SimpleAdapter;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+public class MessageActivity extends SherlockFragmentActivity implements ISideNavigationCallback {
 
-public class MessageActivity extends ListActivity {
-    ArrayList<HashMap<String, String>> list = new ArrayList<HashMap<String, String>>(2);
+    private ActionBar actionbar;
+    private SideNavigationView sideNavigationView;
 
-    private int numUnread = 0;
-
-    private ArrayList<MessageData> messageList;
-    private String jsonResult = "";
-
-    /** Called when the activity is first created. */
+    /**
+     * Called when the activity is first created, this creates the Action Bar
+     * and sets up the Side Navigation Menu.
+     *
+     * @param savedInstanceState: Saved data from the last instance of the
+     *            activity.
+     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
 
-        //check local storage
-        if (LocalStorage.getTimeSinceLastModification("Inbox") / 1000 / 60 < 15) { //more recent than 15 minutes
-            populateInbox();
-        } else {
-            GetUserInboxTask helper = new GetUserInboxTask();
-            helper.execute();
-        }
+        setContentView(R.layout.messages);
+
+        actionbar = getSupportActionBar();
+        actionbar.setIcon(R.drawable.menu_icon);
+        actionbar.setTitle("Messages");
+
+        sideNavigationView = (SideNavigationView) findViewById(R.id.side_navigation_view);
+        sideNavigationView.setMenuItems(R.menu.side_navigation_menu);
+        sideNavigationView.setMenuClickCallback(this);
+        sideNavigationView.setMode(Mode.LEFT);
     }
 
+    /**
+     * Creates the Action Bar Options Menu.
+     *
+     * @param menu: The menu to be created.
+     */
     @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
+    public boolean onCreateOptionsMenu(Menu menu) {
 
-        if (position == 0) {
-            Bundle bundle = new Bundle();
-            bundle.putString("inboxJSON", jsonResult);
+        MenuInflater inflater = getSupportMenuInflater();
+        inflater.inflate(R.menu.main_screen_menu, menu);
 
-            Intent intent = new Intent(MessageActivity.this, MessageInbox.class);
-            intent.putExtras(bundle);
-            startActivity(intent);
-        } else if (position == 1) {
-            Intent intent = new Intent(MessageActivity.this, MessageSent.class);
-            startActivity(intent);
+        return true;
+    }
+
+    /**
+     * Listener for the Action Bar Options Menu.
+     *
+     * @param item: The selected menu item.
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+
+        case R.id.search: {
+            search();
+            return true;
+        }
+
+        case R.id.logOut: {
+            logOut();
+            return true;
+        }
+
+        case R.id.refresh: {
+            refresh();
+            return true;
+        }
+
+        case android.R.id.home: {
+            sideNavigationView.toggleMenu();
+            return true;
+        }
+
+        default:
+            return super.onOptionsItemSelected(item);
         }
     }
 
     /**
-     * Uses the json result passed in, and populates the inbox of the
-     * user with the messages.
+     * Listener for the Side Navigation Menu.
+     *
+     * @param itemId: The ID of the list item that was selected.
      */
-    protected void populateInbox() {
-        jsonResult = LocalStorage.readInbox(getBaseContext());
-        MessagesMap messages = new MessagesMap(jsonResult);
-        messageList = messages.getMessageData();
-        HashMap<String, String> map;
+    @Override
+    public void onSideNavigationItemClick(int itemId) {
 
-        if (!messageList.isEmpty()) {
-            for (int i = 0; i < messageList.size(); i++) {
-                if (Integer.parseInt(messageList.get(i).getNew()) > 0) {
-                    numUnread++;
-                }
-            }
+        switch (itemId) {
+
+        case R.id.side_navigation_menu_item1:
+            invokeActivity(GroupsActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item2:
+            invokeActivity(MessageActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item3:
+            invokeActivity(PhotosActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item4:
+            invokeActivity(EventsActivity.class);
+            break;
+
+        default:
+            return;
         }
 
-        map = new HashMap<String, String>();
-        map.put("line1", "Inbox");
-        map.put("line2", numUnread + " Unread");
-        list.add(map);
-
-        map = new HashMap<String, String>();
-        map.put("line1", "Sent");
-        map.put("line2", "");
-        list.add(map);
-
-        String[] from = { "line1", "line2" };
-
-        int[] to = { android.R.id.text1, android.R.id.text2 };
-
-        SimpleAdapter adapter = new SimpleAdapter(this, list, android.R.layout.simple_list_item_2, from, to);
-        setListAdapter(adapter);
+        finish();
     }
 
-    public class GetUserInboxTask extends AsyncTask<Void, Void, String> {
-        protected String doInBackground(Void... args) {
-            return RestApiV1.getUserInbox();
+    /**
+     * Helper method for onSideNavigationItemClick. Starts the passed in
+     * activity.
+     *
+     * @param activity: The activity to be started.
+     */
+    @SuppressWarnings("rawtypes")
+    private void invokeActivity(Class activity) {
+
+        Intent intent = new Intent(this, activity);
+        startActivity(intent);
+
+        overridePendingTransition(0, 0); // Disables new activity animation.
+    }
+
+    /**
+     * Opens the search screen.
+     */
+    private void search() {
+
+        startActivity(new Intent(this, FindGroupsActivity.class));
+    }
+
+    /**
+     * Logs the user out of the application.
+     */
+    private void logOut() {
+
+        LogOutTask helper = new LogOutTask();
+        helper.execute();
+
+        AccountManager manager = AccountManager.get(this.getBaseContext());
+        Account[] accounts = manager.getAccountsByType("com.allplayers.android");
+
+        if (accounts.length == 1) {
+            manager.removeAccount(accounts[0], null, null);
         }
 
-        protected void onPostExecute(String jsonResult) {
-            LocalStorage.writeInbox(getBaseContext(), jsonResult, false);
-            populateInbox();
+        startActivity(new Intent(this, Login.class));
+        finish();
+    }
+
+    /**
+     * Refreshes the current activity to update information.
+     */
+    private void refresh() {
+
+        finish();
+        startActivity(getIntent());
+    }
+
+    /**
+     * Helper class to handle the network call needed to log out asynchronously.
+     */
+    public class LogOutTask extends AsyncTask<Void, Void, Void> {
+
+        protected Void doInBackground(Void... args) {
+
+            RestApiV1.logOut();
+            return null;
         }
     }
 }

@@ -97,8 +97,6 @@ public class Login extends Activity {
 
                 String email = usernameEditText.getText().toString();
                 String password = passwordEditText.getText().toString();
-                System.out.println(email);
-                System.out.println(password);
 
                 progressSpinner.setVisibility(View.VISIBLE);
                 AttemptLoginTask helper = new AttemptLoginTask();
@@ -142,7 +140,7 @@ public class Login extends Activity {
                     return "noInternetConnection";
                 }
                 if (RestApiV1.isLoggedIn()) {
-                    Intent intent = new Intent(Login.this, MainScreen.class);
+                    Intent intent = new Intent(Login.this, GroupsActivity.class);
                     startActivity(intent);
                     finish();
                     return "validLogin";
@@ -166,7 +164,7 @@ public class Login extends Activity {
                 Account account = new Account(email, "com.allplayers.android");
                 manager.addAccountExplicitly(account, encryptedPassword, null);
 
-                Intent intent = new Intent(Login.this, MainScreen.class);
+                Intent intent = new Intent(Login.this, GroupsActivity.class);
                 startActivity(intent);
                 finish();
                 return "validLogin";

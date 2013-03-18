@@ -1,141 +1,193 @@
+
 package com.allplayers.android;
 
-import com.allplayers.objects.AlbumData;
-import com.allplayers.objects.GroupData;
+import com.actionbarsherlock.app.ActionBar;
+import com.actionbarsherlock.app.SherlockFragmentActivity;
+import com.actionbarsherlock.view.Menu;
+import com.actionbarsherlock.view.MenuInflater;
+import com.actionbarsherlock.view.MenuItem;
 import com.allplayers.rest.RestApiV1;
+import com.devspark.sidenavigation.ISideNavigationCallback;
+import com.devspark.sidenavigation.SideNavigationView;
+import com.devspark.sidenavigation.SideNavigationView.Mode;
 
-import android.app.ListActivity;
+import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
 
-import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
+public class PhotosActivity extends SherlockFragmentActivity implements ISideNavigationCallback {
 
-public class PhotosActivity  extends ListActivity {
-    private ArrayList<AlbumData> albumList = new ArrayList<AlbumData>();
+    private ActionBar actionbar;
+    private SideNavigationView sideNavigationView;
 
-    /** Called when the activity is first created. */
+    /**
+     * Called when the activity is first created, this creates the Action Bar
+     * and sets up the Side Navigation Menu.
+     *
+     * @param savedInstanceState: Saved data from the last instance of the
+     *            activity.
+     */
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
 
-        String jsonResult;
+        setContentView(R.layout.photos);
 
-        if (LocalStorage.getTimeSinceLastModification("UserAlbums") / 1000 / 60 < 60) { //more recent than 60 minutes
-            AlbumsMap albums;
-            ArrayList<AlbumData> newAlbumList;
+        actionbar = getSupportActionBar();
+        actionbar.setIcon(R.drawable.menu_icon);
+        actionbar.setTitle("Photo Albums");
 
-            String storedAlbums = LocalStorage.readUserAlbums(getBaseContext());
-
-            String[] storedAlbumsList = storedAlbums.split("\n");
-
-            for (int i = 0; i < storedAlbumsList.length; i++) {
-                albums = new AlbumsMap(storedAlbumsList[i]);
-                newAlbumList = albums.getAlbumData();
-
-                if (!newAlbumList.isEmpty()) {
-                    for (int j = 0; j < newAlbumList.size(); j++) {
-                        albumList.add(newAlbumList.get(j));
-                    }
-                }
-            }
-        } else {
-            //check local storage
-            if (LocalStorage.getTimeSinceLastModification("UserGroups") / 1000 / 60 < 60) { //more recent than 60 minutes
-                jsonResult = LocalStorage.readUserGroups(getBaseContext());
-                populateGroupAlbums(jsonResult);
-            } else {
-                GetUserGroupsTask helper = new GetUserGroupsTask();
-                helper.execute();
-            }
-        }
-
+        sideNavigationView = (SideNavigationView) findViewById(R.id.side_navigation_view);
+        sideNavigationView.setMenuItems(R.menu.side_navigation_menu);
+        sideNavigationView.setMenuClickCallback(this);
+        sideNavigationView.setMode(Mode.LEFT);
     }
 
+    /**
+     * Creates the Action Bar Options Menu.
+     *
+     * @param menu: The menu to be created.
+     */
     @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
+    public boolean onCreateOptionsMenu(Menu menu) {
 
-        if (!albumList.isEmpty()) {
-            // Display the photos for the selected album
-            Intent intent = (new Router(this)).getAlbumPhotosActivityIntent(albumList.get(position));
-            startActivity(intent);
+        MenuInflater inflater = getSupportMenuInflater();
+        inflater.inflate(R.menu.main_screen_menu, menu);
+
+        return true;
+    }
+
+    /**
+     * Listener for the Action Bar Options Menu.
+     *
+     * @param item: The selected menu item.
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+
+        case R.id.search: {
+            search();
+            return true;
+        }
+
+        case R.id.logOut: {
+            logOut();
+            return true;
+        }
+
+        case R.id.refresh: {
+            refresh();
+            return true;
+        }
+
+        case android.R.id.home: {
+            sideNavigationView.toggleMenu();
+            return true;
+        }
+
+        default:
+            return super.onOptionsItemSelected(item);
         }
     }
 
     /**
-     * Uses the json result passed in, and populates the UI with a list of albums from the
-     * user's groups.
-     * @param jsonResult
+     * Listener for the Side Navigation Menu.
+     *
+     * @param itemId: The ID of the list item that was selected.
      */
-    protected void populateGroupAlbums(String jsonResult) {
-        GroupsMap groups = new GroupsMap(jsonResult);
-        ArrayList<GroupData> groupList = groups.getGroupData();
+    @Override
+    public void onSideNavigationItemClick(int itemId) {
 
-        if (!groupList.isEmpty()) {
-            String group_uuid;
+        switch (itemId) {
 
-            LocalStorage.writeUserAlbums(getBaseContext(), "", true);
+        case R.id.side_navigation_menu_item1:
+            invokeActivity(GroupsActivity.class);
+            break;
 
-            for (int i = 0; i < groupList.size(); i++) {
-                group_uuid = groupList.get(i).getUUID();
-                GetGroupAlbumsByGroupIdTask helper = new GetGroupAlbumsByGroupIdTask();
-                helper.execute(group_uuid);
-            }
+        case R.id.side_navigation_menu_item2:
+            invokeActivity(MessageActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item3:
+            invokeActivity(PhotosActivity.class);
+            break;
+
+        case R.id.side_navigation_menu_item4:
+            invokeActivity(EventsActivity.class);
+            break;
+
+        default:
+            return;
         }
+
+        finish();
     }
 
-    /*
-     * Gets a user's groups using a rest call.
+    /**
+     * Helper method for onSideNavigationItemClick. Starts the passed in
+     * activity.
+     *
+     * @param activity: The activity to be started.
      */
-    public class GetUserGroupsTask extends AsyncTask<Void, Void, String> {
+    @SuppressWarnings("rawtypes")
+    private void invokeActivity(Class activity) {
 
-        protected String doInBackground(Void... args) {
-            return RestApiV1.getUserGroups();
-        }
+        Intent intent = new Intent(this, activity);
+        startActivity(intent);
 
-        protected void onPostExecute(String jsonResult) {
-            LocalStorage.writeUserGroups(getBaseContext(), jsonResult, false);
-            populateGroupAlbums(jsonResult);
-        }
+        overridePendingTransition(0, 0); // Disables new activity animation.
     }
 
-    /*
-     * Gets a group's photo albums using a rest call.
+    /**
+     * Opens the search screen.
      */
-    public class GetGroupAlbumsByGroupIdTask extends AsyncTask<String, Void, String> {
+    private void search() {
 
-        protected String doInBackground(String... group_uuid) {
-            return RestApiV1.getGroupAlbumsByGroupId(group_uuid[0]);
+        startActivity(new Intent(this, FindGroupsActivity.class));
+    }
+
+    /**
+     * Logs the user out of the application.
+     */
+    private void logOut() {
+
+        LogOutTask helper = new LogOutTask();
+        helper.execute();
+
+        AccountManager manager = AccountManager.get(this.getBaseContext());
+        Account[] accounts = manager.getAccountsByType("com.allplayers.android");
+
+        if (accounts.length == 1) {
+            manager.removeAccount(accounts[0], null, null);
         }
 
-        protected void onPostExecute(String jsonResult) {
-            AlbumsMap albums;
-            ArrayList<AlbumData> newAlbumList;
-            LocalStorage.appendUserAlbums(getBaseContext(), jsonResult);
-            albums = new AlbumsMap(jsonResult);
-            newAlbumList = albums.getAlbumData();
+        startActivity(new Intent(this, Login.class));
+        finish();
+    }
 
-            if (!newAlbumList.isEmpty()) {
-                for (int j = 0; j < newAlbumList.size(); j++) {
-                    albumList.add(newAlbumList.get(j));
-                }
-            }
-            if (albumList.isEmpty()) {
-                String[] values = new String[] {"no albums to display"};
-                ArrayAdapter<String> adapter = new ArrayAdapter<String>(PhotosActivity.this,
-                        android.R.layout.simple_list_item_1, values);
-                setListAdapter(adapter);
-            } else {
-                //Create a customized ArrayAdapter
-                // TODO Fix to use only one adapter and push new items into it.
-                AlbumAdapter adapter = new AlbumAdapter(getApplicationContext(), R.layout.albumlistitem, albumList);
-                setListAdapter(adapter);
-            }
+    /**
+     * Refreshes the current activity to update information.
+     */
+    private void refresh() {
+
+        finish();
+        startActivity(getIntent());
+    }
+
+    /**
+     * Helper class to handle the network call needed to log out asynchronously.
+     */
+    public class LogOutTask extends AsyncTask<Void, Void, Void> {
+
+        protected Void doInBackground(Void... args) {
+
+            RestApiV1.logOut();
+            return null;
         }
     }
 }
