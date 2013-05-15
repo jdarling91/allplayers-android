@@ -37,7 +37,9 @@ public class Login extends Activity {
     EditText passwordEditText;
     TextView passwordLabel;
     TextView usernameLabel;
-    Button button;
+    Button loginButton;
+    Button newAccountButton;
+    TextView accountCreateSuccess;
     static ProgressBar progressSpinner;
     AccountManager manager;
 
@@ -59,13 +61,15 @@ public class Login extends Activity {
 
         context = this.getBaseContext();
         manager = AccountManager.get(context);
-        button = (Button)findViewById(R.id.loginButton);
+        loginButton = (Button)findViewById(R.id.loginButton);
+        newAccountButton = (Button)findViewById(R.id.newAccountButton);
         usernameEditText = (EditText)findViewById(R.id.usernameField);
         passwordEditText = (EditText)findViewById(R.id.passwordField);
         passwordLabel = (TextView)findViewById(R.id.passwordLabel);
         usernameLabel = (TextView)findViewById(R.id.usernameLabel);
+        accountCreateSuccess = (TextView)findViewById(R.id.account_create_success);
         progressSpinner = (ProgressBar) findViewById(R.id.ctrlActivityIndicator);
-
+        
         // Clear any UUID that may be saved from a previous user.
         // @TODO: This is not an elegant solution though is the only apparent one due to the way that
         //  RestApiV1 is currently set up.
@@ -98,7 +102,7 @@ public class Login extends Activity {
             showLoginFields();
         }
 
-        button.setOnClickListener(new View.OnClickListener() {
+        loginButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
 
                 String email = usernameEditText.getText().toString();
@@ -109,8 +113,28 @@ public class Login extends Activity {
                 helper.execute(email, password);
             }
         });
+        
+        newAccountButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+
+                    Intent intent = new Intent(Login.this, NewAccountActivity.class);
+                    startActivityForResult(intent, 0);
+            }
+        });
     }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 0 || requestCode == 1) {
+            if (resultCode == Activity.RESULT_OK) {
+                usernameEditText.setText(data.getStringArrayExtra("login credentials")[0]);
+                passwordEditText.setText(data.getStringArrayExtra("login credentials")[1]);
+                accountCreateSuccess.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+    
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_SEARCH || keyCode == KeyEvent.KEYCODE_MENU) {
@@ -122,7 +146,8 @@ public class Login extends Activity {
     }
 
     public void showLoginFields() {
-        button.setVisibility(View.VISIBLE);
+        loginButton.setVisibility(View.VISIBLE);
+        newAccountButton.setVisibility(View.VISIBLE);
         usernameEditText.setVisibility(View.VISIBLE);
         passwordEditText.setVisibility(View.VISIBLE);
         passwordLabel.setVisibility(View.VISIBLE);
