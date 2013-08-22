@@ -39,7 +39,6 @@ import org.json.JSONObject;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
-import android.util.Log;
 
 /**
  * App side of the API.
@@ -52,8 +51,8 @@ public class RestApiV1 {
     private static final String CAP_TOKEN_NAME = "X-ALLPLAYERS-CAPTCHA-TOKEN";
     
     //**FOR TESTING ONLY**//
-    private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
-    //private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
+    //private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
+    private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
     
     private static String sCurrentUserUUID = "";
 
@@ -354,7 +353,6 @@ public class RestApiV1 {
         // Make and return from unauthenticated get call
         try {
             URL url = new URL(urlString);
-            Log.d("IC", urlString + "\n" + url);
             HttpURLConnection connection = (HttpURLConnection) url
                                            .openConnection();
             connection.setDoInput(true);
@@ -476,12 +474,8 @@ public class RestApiV1 {
                 // Fetch the dimensions of the photo. We'll use these to calculate the scaling of it.
                 BitmapFactory.decodeStream(instream, null, options);
                 
-                System.out.println("ImageWidth: " + options.outWidth + " ImageHeight: " + options.outHeight);
-                System.out.println("RequestedWidth: " + requestedWidth + " RequestedHeight: " + requestedHeight);
-
                 if ((options.outWidth > requestedWidth) || (options.outHeight > requestedHeight)) {
                    
-                    System.out.println("In the resizing if");
                     int scale = 1;
                     boolean flag = true;
                     
@@ -1193,7 +1187,9 @@ public class RestApiV1 {
                                        String gender, String birthday,String password,
                                        String capToken, String capResponse) {
 
-        String query = "https://www.pdup.allplayers.com/api/v1/rest/users.json";
+        //**FOR TESTING ONLY**//
+        // String query = "https://www.pdup.allplayers.com/api/v1/rest/users.json";
+        String query = "https://www.allplayers.com/api/v1/rest/users.json";
         String[][] contents = new String[6][2];
 
         // Set firstName
