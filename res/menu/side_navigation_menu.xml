@@ -21,10 +21,12 @@
         android:id="@+id/events"
         android:icon="@drawable/events_sidenav_icon"
         android:title="@string/events"/>
-    <item
-        android:id="@+id/search"
-        android:icon="@drawable/search_sidenav_icon"
-        android:title="@string/search"/>
+    
+    <!-- Group search needs to have some work done in the API to be where it should be. -->
+<!--     <item -->
+<!--         android:id="@+id/search" -->
+<!--         android:icon="@drawable/search_sidenav_icon" -->
+<!--         android:title="@string/search"/> -->
     <item
         android:id="@+id/log_out"
         android:icon="@drawable/logout_sidenav_icon"

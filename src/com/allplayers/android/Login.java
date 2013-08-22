@@ -210,7 +210,9 @@ public class Login extends Activity {
     public void showLoginFields() {
         mLoginButton.setVisibility(View.VISIBLE);
         mNewAccountButton.setVisibility(View.VISIBLE);
-        mGroupSearchButton.setVisibility(View.VISIBLE);
+        
+        // Group search needs some work on the API to really be any good.
+        //mGroupSearchButton.setVisibility(View.VISIBLE);
         mUsernameEditText.setVisibility(View.VISIBLE);
         mPasswordEditText.setVisibility(View.VISIBLE);
         mPasswordLabel.setVisibility(View.VISIBLE);
