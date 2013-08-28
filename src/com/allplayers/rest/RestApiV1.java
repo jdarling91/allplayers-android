@@ -51,8 +51,8 @@ public class RestApiV1 {
     private static final String CAP_TOKEN_NAME = "X-ALLPLAYERS-CAPTCHA-TOKEN";
     
     //**FOR TESTING ONLY**//
-    //private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
-    private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
+    private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
+    //private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
     
     private static String sCurrentUserUUID = "";
 
