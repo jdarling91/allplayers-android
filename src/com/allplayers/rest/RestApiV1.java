@@ -45,14 +45,15 @@ import android.graphics.BitmapFactory;
  */
 public class RestApiV1 {
     
+    public static boolean dumpedFromMemory = false;
     private static CookieHandler sCookieHandler = new CookieManager();
 
     private static final String CAP_SOLUTION_NAME = "X-ALLPLAYERS-CAPTCHA-SOLUTION";
     private static final String CAP_TOKEN_NAME = "X-ALLPLAYERS-CAPTCHA-TOKEN";
     
     //**FOR TESTING ONLY**//
-    private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
-    //private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
+    //private static final String ENDPOINT = "https://www.pdup.allplayers.com/?q=api/v1/rest/";
+    private static final String ENDPOINT = "https://www.allplayers.com/?q=api/v1/rest/";
     
     private static String sCurrentUserUUID = "";
 
@@ -117,42 +118,48 @@ public class RestApiV1 {
      */
     public static boolean isLoggedIn() {
         
-        // If we don't have the user's UUID stored locally, we know that nobody is logged in. We can
-        // stop checking right here.
-        if (sCurrentUserUUID.equals("") || sCurrentUserUUID.equals(null)) {
-            logOut();
-            return false;
-        }
-
-        // If we make it this far, we know that the app has the UUID saved, now we need to check if
-        // the API says that we are logged in.
-        try {
-            URL url = new URL(ENDPOINT + "users/" + sCurrentUserUUID + ".json");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setDoInput(true);
-            InputStream inStream = connection.getInputStream();
-            BufferedReader input = new BufferedReader(new InputStreamReader(
-                        inStream));
-            String line = "";
-            String result = "";
-            while ((line = input.readLine()) != null) {
-                result += line;
-            }
-            JSONObject jsonResult = new JSONObject(result);
-            String retrievedUUID = jsonResult.getString("uuid");
-
-            // Check if the the logged in user in the API is the same one that we have stored in the
-            // app. If not, something weird happened so we should log out both the app and the API.
-            if (retrievedUUID.equals(sCurrentUserUUID)) {
-                return true;
-            } else {
+        //This is a bandaid that eventually needs to be fixed.
+        if (!RestApiV1.dumpedFromMemory) {
+            
+            // If we don't have the user's UUID stored locally, we know that nobody is logged in. We can
+            // stop checking right here.
+            if (sCurrentUserUUID.equals("") || sCurrentUserUUID.equals(null)) {
                 logOut();
                 return false;
             }
-        } catch (Exception ex) {
-            System.err.println("APCI_RestServices/isLoggedIn/" + ex);
-            return false;
+    
+            // If we make it this far, we know that the app has the UUID saved, now we need to check if
+            // the API says that we are logged in.
+            try {
+                URL url = new URL(ENDPOINT + "users/" + sCurrentUserUUID + ".json");
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setDoInput(true);
+                InputStream inStream = connection.getInputStream();
+                BufferedReader input = new BufferedReader(new InputStreamReader(
+                            inStream));
+                String line = "";
+                String result = "";
+                while ((line = input.readLine()) != null) {
+                    result += line;
+                }
+                JSONObject jsonResult = new JSONObject(result);
+                String retrievedUUID = jsonResult.getString("uuid");
+    
+                // Check if the the logged in user in the API is the same one that we have stored in the
+                // app. If not, something weird happened so we should log out both the app and the API.
+                if (retrievedUUID.equals(sCurrentUserUUID)) {
+                    return true;
+                } else {
+                    logOut();
+                    return false;
+                }
+            } catch (Exception ex) {
+                System.err.println("APCI_RestServices/isLoggedIn/" + ex);
+                return false;
+            }
         }
+        
+        return true;
     }
 
     /**
