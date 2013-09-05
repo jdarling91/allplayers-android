@@ -46,7 +46,7 @@ public class AllplayersSherlockActivity extends SherlockActivity implements ISid
         if ((RestApiV1.getCurrentUserUUID() == null) || (RestApiV1.getCurrentUserUUID() == "")) {
             RestApiV1.dumpedFromMemory = true;
             Intent intent = new Intent(this, Login.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             this.startActivity(intent);
             finish();
         }
