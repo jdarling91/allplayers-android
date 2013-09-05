@@ -208,7 +208,7 @@ public class UserFriendsFragment extends ListFragment {
                 // a blank indicator showing so.
                 if (mMembersList.size() == 0) {
                     GroupMemberData blank = new GroupMemberData();
-                    blank.setName("No groupmates to display");
+                    blank.setName("No friends to display");
                     mMembersList.add(blank);
                     mAdapter.notifyDataSetChanged();
                     mListView.setEnabled(false);
