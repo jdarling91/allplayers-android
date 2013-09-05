@@ -70,8 +70,8 @@ public class NewAccountActivity extends Activity {
         setContentView(R.layout.activity_new_account);
 
         // Set up the captcha on the page for the user to solve. This one is generated in the app
-        // using the same random number ranges used on the  site to avoid the wierdness of how the
-        // API works.
+        // using the same random number ranges used on the site. This is done to avoid sending more
+        // network calls than we need to.
         setCaptcha();
 
         // Get a handle on all of the page elements in the XML.
@@ -571,6 +571,11 @@ public class NewAccountActivity extends Activity {
          */
         @Override
         protected void onPostExecute(String jsonResult) {
+            
+            if (jsonResult.equals("error")) {
+                Toast toast = Toast.makeText(NewAccountActivity.this, "It appears that you are having connection issues, please check your network settings", Toast.LENGTH_LONG);
+                toast.show();
+            }
             try {
                 JSONObject response = new JSONObject(jsonResult);
                 Log.d("JSONRESPONSE", jsonResult);
