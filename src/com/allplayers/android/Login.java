@@ -149,8 +149,15 @@ public class Login extends Activity {
             @Override
             public void onClick(View v) {
 
-                Intent intent = new Intent(Login.this, NewAccountActivity.class);
-                startActivityForResult(intent, 0);
+                ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                if (activeNetworkInfo == null) {
+                    Toast noInternetConnection = Toast.makeText(getApplicationContext(), "No Connection \nCheck Internet Connectivity", Toast.LENGTH_LONG);
+                    noInternetConnection.show();
+                } else {
+                   Intent intent = new Intent(Login.this, NewAccountActivity.class);
+                    startActivityForResult(intent, 0);
+                }
             }
         });
 
@@ -163,7 +170,16 @@ public class Login extends Activity {
              */
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(Login.this, FindGroupsActivity.class));
+                
+                ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
+                if (activeNetworkInfo == null) {
+                    Toast noInternetConnection = Toast.makeText(getApplicationContext(), "No Connection \nCheck Internet Connectivity", Toast.LENGTH_LONG);
+                    noInternetConnection.show();
+                } else {
+                   Intent intent = new Intent(Login.this, FindGroupsActivity.class);
+                    startActivityForResult(intent, 0);
+                }
             }
         });
     }
